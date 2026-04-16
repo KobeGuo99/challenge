@@ -14,6 +14,7 @@
     pointValue: document.getElementById("pointValue"),
     pointNote: document.getElementById("pointNote"),
     pointPreview: document.getElementById("pointPreview"),
+    pointPreviewBox: document.getElementById("pointPreviewBox"),
     modalBackdrop: document.getElementById("modalBackdrop"),
     cancelResetButton: document.getElementById("cancelResetButton"),
     confirmResetButton: document.getElementById("confirmResetButton")
@@ -122,6 +123,18 @@
     return `Leader: ${totals[0].player.name}`;
   }
 
+  function getPlayerClass(playerId) {
+    if (playerId === "rinchan") {
+      return "player-rinchan";
+    }
+
+    if (playerId === "kokun") {
+      return "player-kokun";
+    }
+
+    return "";
+  }
+
   function renderPlayerOptions() {
     const currentValue = elements.pointPlayer.value;
     elements.pointPlayer.innerHTML = state.players.map(function (player) {
@@ -150,8 +163,10 @@
 
   function renderScoreboard() {
     elements.playerCards.innerHTML = getPlayerTotals().map(function (item) {
+      const playerClass = getPlayerClass(item.player.id);
+
       return `
-        <article class="score-card">
+        <article class="score-card ${playerClass}">
           <div class="score-header">
             <div>
               <h3>${item.player.name}</h3>
@@ -187,9 +202,10 @@
       ? state.pointEvents.slice(0, 20).map(function (event) {
           const pointClass = event.points > 0 ? "positive" : event.points < 0 ? "negative" : "";
           const pointLabel = event.points > 0 ? `+${event.points}` : `${event.points}`;
+          const playerClass = getPlayerClass(event.playerId);
 
           return `
-            <div class="simple-item">
+            <div class="simple-item ${playerClass}">
               <strong>${playerNames[event.playerId] || event.playerId} · ${event.actionName}</strong>
               <div class="subtle">${formatTimestamp(event.timestamp)} · <span class="${pointClass}">${pointLabel} pts</span></div>
               ${event.note ? `<div class="subtle">${event.note}</div>` : ""}
@@ -206,6 +222,8 @@
   function updatePreview() {
     const points = numberValue(elements.pointValue.value);
     elements.pointPreview.textContent = points > 0 ? `+${points}` : String(points);
+    elements.pointPreviewBox.classList.toggle("is-negative", points < 0);
+    elements.pointValue.classList.toggle("negative-input", points < 0);
   }
 
   function render() {

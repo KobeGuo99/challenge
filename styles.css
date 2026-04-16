@@ -8,6 +8,10 @@
   --brand-dark: #b34d28;
   --green: #2d7a4d;
   --red: #a33a33;
+  --rinchan: #e97c6b;
+  --rinchan-soft: rgba(233, 124, 107, 0.14);
+  --kokun: #3f8c8b;
+  --kokun-soft: rgba(63, 140, 139, 0.14);
   --shadow: 0 14px 36px rgba(58, 42, 21, 0.08);
   --radius: 20px;
 }
@@ -51,6 +55,9 @@ select {
   gap: 1rem;
   padding: 1.25rem;
   margin-bottom: 1rem;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 242, 0.96), rgba(255, 245, 233, 0.96)),
+    linear-gradient(90deg, var(--rinchan-soft), var(--kokun-soft));
 }
 
 .eyebrow,
@@ -139,6 +146,41 @@ h2 {
   padding: 1rem;
 }
 
+.score-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.score-card::before,
+.simple-item.player-rinchan::before,
+.simple-item.player-kokun::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 8px;
+  border-radius: 16px 0 0 16px;
+}
+
+.player-rinchan {
+  border-color: rgba(233, 124, 107, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 242, 240, 0.96));
+}
+
+.player-kokun {
+  border-color: rgba(63, 140, 139, 0.28);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 249, 248, 0.96));
+}
+
+.score-card.player-rinchan::before,
+.simple-item.player-rinchan::before {
+  background: linear-gradient(180deg, var(--rinchan), #f3ae7f);
+}
+
+.score-card.player-kokun::before,
+.simple-item.player-kokun::before {
+  background: linear-gradient(180deg, var(--kokun), #78bcb4);
+}
+
 .score-header,
 .stat-row,
 .modal-actions {
@@ -167,6 +209,14 @@ h2 {
   background: rgba(38, 25, 13, 0.05);
 }
 
+.player-rinchan .stat-row {
+  background: rgba(233, 124, 107, 0.11);
+}
+
+.player-kokun .stat-row {
+  background: rgba(63, 140, 139, 0.11);
+}
+
 .point-form {
   display: grid;
   gap: 0.8rem;
@@ -191,6 +241,13 @@ select {
   border: 1px solid rgba(58, 42, 21, 0.18);
   background: #fff;
   color: var(--text);
+}
+
+input:focus,
+select:focus {
+  outline: 0;
+  border-color: rgba(215, 100, 57, 0.45);
+  box-shadow: 0 0 0 4px rgba(215, 100, 57, 0.12);
 }
 
 button {
@@ -224,6 +281,20 @@ button {
   background: rgba(45, 122, 77, 0.12);
   color: var(--green);
   font-weight: 700;
+  border: 1px solid rgba(45, 122, 77, 0.14);
+}
+
+.preview-box.is-negative {
+  background: rgba(163, 58, 51, 0.13);
+  color: var(--red);
+  border-color: rgba(163, 58, 51, 0.22);
+}
+
+.negative-input {
+  border-color: rgba(163, 58, 51, 0.5);
+  background: rgba(255, 242, 241, 0.98);
+  color: var(--red);
+  box-shadow: 0 0 0 4px rgba(163, 58, 51, 0.08);
 }
 
 .wide {
@@ -243,6 +314,11 @@ button {
   border: 1px dashed var(--line);
   border-radius: 16px;
   color: var(--muted);
+}
+
+.simple-item {
+  position: relative;
+  overflow: hidden;
 }
 
 .compact-panel {
