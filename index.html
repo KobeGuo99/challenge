@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rinchan vs Kokun Points</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Shared Weekly Points</p>
+        <h1>Rinchan vs Kokun</h1>
+        <p class="hero-copy">Pick a player, pick what you are adding, choose the points, and save.</p>
+      </div>
+      <div class="hero-status">
+        <div class="status-pill" id="storageStatus">Checking storage...</div>
+        <div class="meta-line">Last updated: <strong id="lastUpdated">-</strong></div>
+        <button id="refreshButton" class="secondary-button" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Scoreboard</p>
+            <h2>Weekly totals</h2>
+          </div>
+          <div class="leader-chip" id="leaderChip">Leader: tied</div>
+        </div>
+        <div class="score-grid" id="playerCards"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Add points</p>
+            <h2>Manual point entry</h2>
+          </div>
+        </div>
+        <form id="pointForm" class="point-form">
+          <label>
+            <span>Player</span>
+            <select id="pointPlayer" required></select>
+          </label>
+          <label>
+            <span>Action</span>
+            <select id="pointAction" required></select>
+          </label>
+          <label>
+            <span>Points</span>
+            <input id="pointValue" type="number" step="1" value="1" required>
+          </label>
+          <label class="wide">
+            <span>Note</span>
+            <input id="pointNote" type="text" maxlength="120" placeholder="Optional note">
+          </label>
+          <div class="preview-box wide">
+            <span>Points to add</span>
+            <strong id="pointPreview">+1</strong>
+          </div>
+          <button class="primary-button wide" type="submit">Save points</button>
+        </form>
+      </section>
+
+      <section class="panel compact-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Actions</p>
+            <h2>Available types</h2>
+          </div>
+        </div>
+        <div id="actionsList" class="simple-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">History</p>
+            <h2>Recent point changes</h2>
+          </div>
+        </div>
+        <div id="historyList" class="simple-list"></div>
+      </section>
+
+      <section class="panel compact-panel">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Reset</p>
+            <h2>Start a new week</h2>
+          </div>
+        </div>
+        <p class="muted-copy">This clears scores and history, but keeps the players and action choices.</p>
+        <button id="resetButton" class="danger-button" type="button">Reset week</button>
+      </section>
+    </main>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle">Reset this week?</h3>
+      <p>This will remove all saved point events for the week.</p>
+      <div class="modal-actions">
+        <button id="cancelResetButton" class="secondary-button" type="button">Cancel</button>
+        <button id="confirmResetButton" class="danger-button" type="button">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.example.js"></script>
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
