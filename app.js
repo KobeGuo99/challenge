@@ -1,7 +1,6 @@
 (function () {
   const elements = {
     playerCards: document.getElementById("playerCards"),
-    actionsList: document.getElementById("actionsList"),
     historyList: document.getElementById("historyList"),
     leaderChip: document.getElementById("leaderChip"),
     storageStatus: document.getElementById("storageStatus"),
@@ -184,14 +183,6 @@
     elements.leaderChip.textContent = getLeaderText();
   }
 
-  function renderActionsList() {
-    elements.actionsList.innerHTML = state.actions.length
-      ? state.actions.map(function (action) {
-          return `<div class="simple-item"><strong>${action.name}</strong><div class="subtle">${action.id}</div></div>`;
-        }).join("")
-      : '<div class="empty-state">No actions found.</div>';
-  }
-
   function renderHistory() {
     const playerNames = state.players.reduce(function (map, player) {
       map[player.id] = player.name;
@@ -230,7 +221,6 @@
     renderPlayerOptions();
     renderActionOptions();
     renderScoreboard();
-    renderActionsList();
     renderHistory();
     renderMeta();
     updatePreview();
