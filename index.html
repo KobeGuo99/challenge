@@ -134,6 +134,21 @@
         <p class="muted-copy">If you clear without saving, the current week is gone. Save first if you want it kept in weekly history.</p>
         <button id="resetButton" class="danger-button" type="button">Clear current week</button>
       </section>
+
+      <section class="panel compact-panel edit-only">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Backup</p>
+            <h2>Export or restore data</h2>
+          </div>
+        </div>
+        <p class="muted-copy">Export saves the full app state as JSON. Import replaces the current app state with a backup file.</p>
+        <div class="action-row">
+          <button id="exportBackupButton" class="secondary-button" type="button">Export backup</button>
+          <button id="importBackupButton" class="primary-button" type="button">Import backup</button>
+        </div>
+        <input id="importBackupInput" type="file" accept="application/json" class="hidden">
+      </section>
     </main>
   </div>
 
@@ -179,6 +194,7 @@
   </div>
 
   <script src="config.example.js"></script>
+  <script src="config.local.js"></script>
   <script src="storage.js"></script>
   <script src="app.js"></script>
 </body>

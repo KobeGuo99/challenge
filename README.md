@@ -52,24 +52,36 @@ This project is prewired for JSONBin in `storage.js`, but the provider logic is 
 
 1. Create a JSONBin account.
 2. Create a new bin containing the sample state from `window.APP_DEFAULT_STATE` in `config.example.js`.
-3. Copy your bin ID.
-4. Create or locate your JSONBin API key.
-5. Open `config.example.js`.
-6. Replace:
-   - `REPLACE_WITH_YOUR_BIN_ID`
-   - `REPLACE_WITH_YOUR_JSONBIN_MASTER_KEY_OR_ACCESS_KEY`
-7. If you also use a JSONBin access key, put it in `accessKey`.
-8. Save the file and deploy.
+3. If you want GitHub Pages to be public and safe, make the bin visibility `Public`.
+4. Copy the public bin ID into `config.example.js`.
+5. If you want local editing, copy `config.local.example.js` to `config.local.js`.
+6. Put your write-capable JSONBin access key only in `config.local.js`.
+7. Do not commit `config.local.js`.
+8. Deploy only the tracked files.
+
+### Safe production pattern
+
+- `config.example.js`: commit only a public read-only bin ID here
+- `config.local.js`: keep your private access key here for local/private editing only
+- GitHub Pages deployment: view-only by default when no write key is present
+
+### Important security rule
+
+Any key shipped to a browser-accessible static site is exposed to anyone who can open developer tools.
+
+That means:
+
+- a real write-capable key must never be committed
+- a real write-capable key must never be deployed to GitHub Pages
+- if you need secure public editing, you need a backend or serverless proxy
 
 ### Important JSONBin note
 
-This app currently sends these headers from the browser:
+This app supports:
 
-- `X-Master-Key`
-- `X-Access-Key` if provided
-- `Content-Type: application/json`
-
-That matches JSONBin's current browser API flow for reading and updating a bin.
+- public read-only bin access using only `binId`
+- authenticated writes using `X-Access-Key` or `X-Master-Key`
+- local fallback storage when remote write access is not configured
 
 ## Deploy on GitHub Pages
 

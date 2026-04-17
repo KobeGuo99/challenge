@@ -2,8 +2,9 @@ window.APP_CONFIG = {
   storage: {
     provider: "jsonbin",
     baseUrl: "https://api.jsonbin.io/v3",
-    binId: "69e15764aaba88219708efd8",
-    apiKey: "$2a$10$MKoWP/7rcskV7SF/DZ1X1.tkegeV8KeMq7q.Fi11vEZkDkvnPrG.u",
+    // Safe to commit for a public, read-only deployment if your bin visibility is Public.
+    binId: "REPLACE_WITH_PUBLIC_READONLY_BIN_ID",
+    apiKey: "",
     accessKey: "",
     useVersioning: false
   },

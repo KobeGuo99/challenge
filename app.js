@@ -14,6 +14,9 @@
     modeToggleButton: document.getElementById("modeToggleButton"),
     resetButton: document.getElementById("resetButton"),
     saveWeekButton: document.getElementById("saveWeekButton"),
+    exportBackupButton: document.getElementById("exportBackupButton"),
+    importBackupButton: document.getElementById("importBackupButton"),
+    importBackupInput: document.getElementById("importBackupInput"),
     viewHistoryButton: document.getElementById("viewHistoryButton"),
     closeHistoryButton: document.getElementById("closeHistoryButton"),
     pointForm: document.getElementById("pointForm"),
@@ -36,6 +39,7 @@
   };
 
   const storage = window.AppStorage.createClient();
+  const storageCapabilities = storage.getCapabilities();
   const defaultState = window.APP_DEFAULT_STATE || {};
   const refreshIntervalMs = (window.APP_CONFIG && window.APP_CONFIG.refreshIntervalMs) || 60000;
   const editPin = "1825";
@@ -45,6 +49,7 @@
   let pendingSyncCount = 0;
   let syncQueue = Promise.resolve();
   let isEditMode = false;
+  const canUseEditMode = storageCapabilities.canWriteRemote;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -141,6 +146,11 @@
   }
 
   function requireEditMode() {
+    if (!canUseEditMode) {
+      setTemporaryStatus("This deployment is view-only. Edit mode requires a private local config.");
+      return false;
+    }
+
     if (isEditMode) {
       return true;
     }
@@ -455,13 +465,24 @@
     elements.modePill.textContent = isEditMode ? "Edit mode" : "View mode";
     elements.modeToggleButton.textContent = isEditMode ? "Lock" : "Edit";
     elements.modeToggleButton.className = isEditMode ? "secondary-button" : "primary-button";
+    elements.modeToggleButton.disabled = !canUseEditMode;
     elements.modeDescription.textContent = isEditMode
       ? "Edit mode is unlocked. You can add points, save weeks, and clear the current week."
-      : "View mode shows points and history. Enter the PIN to switch to edit mode.";
+      : canUseEditMode
+        ? "View mode shows points and history. Enter the PIN to switch to edit mode."
+        : "This deployment is view-only. To enable editing, add a private local config with write access.";
 
     elements.editOnlySections.forEach(function (section) {
       section.classList.toggle("hidden-mode", !isEditMode);
     });
+  }
+
+  function setConfigurationGuidance() {
+    if (storageCapabilities.canReadRemote) {
+      return;
+    }
+
+    elements.modeDescription.textContent = "JSONBin is not configured here yet. For local editing, create config.local.js from config.local.example.js.";
   }
 
   function renderMeta() {
@@ -475,8 +496,32 @@
     elements.pointValue.classList.toggle("negative-input", points < 0);
   }
 
+  function sanitizeImportState(rawState) {
+    const importedState = normalizeState(rawState);
+
+    importedState.meta = Object.assign({}, importedState.meta || {}, {
+      revision: numberValue(importedState.meta && importedState.meta.revision),
+      updatedAt: importedState.meta && importedState.meta.updatedAt ? importedState.meta.updatedAt : null,
+      lastResetAt: importedState.meta && importedState.meta.lastResetAt ? importedState.meta.lastResetAt : null,
+      weekLabel: importedState.meta && importedState.meta.weekLabel
+        ? importedState.meta.weekLabel
+        : createWeekLabel(new Date().toISOString()),
+      savedWeekId: importedState.meta && importedState.meta.savedWeekId
+        ? importedState.meta.savedWeekId
+        : null
+    });
+
+    return importedState;
+  }
+
+  function buildBackupFilename() {
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    return `rinchan-kokun-backup-${dateStamp}.json`;
+  }
+
   function render() {
     renderMode();
+    setConfigurationGuidance();
     renderPlayerOptions();
     renderActionOptions();
     renderScoreboard();
@@ -569,6 +614,68 @@
     render();
     queuePersist(clone(state), successMessage);
     return true;
+  }
+
+  function handleExportBackup() {
+    if (!requireEditMode()) {
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(state, null, 2)], {
+      type: "application/json"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = buildBackupFilename();
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setTemporaryStatus("Backup exported.");
+  }
+
+  function handleImportBackupClick() {
+    if (!requireEditMode()) {
+      return;
+    }
+
+    elements.importBackupInput.value = "";
+    elements.importBackupInput.click();
+  }
+
+  async function handleImportBackupChange(event) {
+    if (!requireEditMode()) {
+      event.target.value = "";
+      return;
+    }
+
+    const file = event.target.files && event.target.files[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const importedState = sanitizeImportState(parsed);
+      const confirmed = window.confirm("Importing a backup will replace the current app data. Continue?");
+
+      if (!confirmed) {
+        event.target.value = "";
+        return;
+      }
+
+      saveWithLatest(function () {
+        state = importedState;
+      }, "Backup imported.");
+    } catch (error) {
+      setTemporaryStatus(`Import failed: ${error.message}`);
+    } finally {
+      event.target.value = "";
+    }
   }
 
   async function handlePointSubmit(event) {
@@ -724,6 +831,9 @@
     elements.refreshButton.addEventListener("click", refreshFromStorage);
     elements.modeToggleButton.addEventListener("click", handleModeToggle);
     elements.saveWeekButton.addEventListener("click", handleSaveWeek);
+    elements.exportBackupButton.addEventListener("click", handleExportBackup);
+    elements.importBackupButton.addEventListener("click", handleImportBackupClick);
+    elements.importBackupInput.addEventListener("change", handleImportBackupChange);
     elements.viewHistoryButton.addEventListener("click", openHistoryModal);
     elements.closeHistoryButton.addEventListener("click", closeHistoryModal);
     elements.pinForm.addEventListener("submit", handlePinSubmit);

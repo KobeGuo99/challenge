@@ -28,21 +28,13 @@
     const resourceUrl = `${baseUrl}/b/${storageConfig.binId}`;
     const latestUrl = `${resourceUrl}/latest`;
 
-    function buildHeaders(authMode) {
+    function buildHeaders(authHeader) {
       const headers = {
         "Content-Type": "application/json"
       };
 
-      if (authMode === "master" && storageConfig.apiKey) {
-        headers["X-Master-Key"] = storageConfig.apiKey;
-      }
-
-      if (authMode === "access" && storageConfig.apiKey) {
-        headers["X-Access-Key"] = storageConfig.apiKey;
-      }
-
-      if (storageConfig.accessKey) {
-        headers["X-Access-Key"] = storageConfig.accessKey;
+      if (authHeader && authHeader.name && authHeader.value) {
+        headers[authHeader.name] = authHeader.value;
       }
 
       if (storageConfig.useVersioning) {
@@ -52,13 +44,52 @@
       return headers;
     }
 
-    async function requestJson(url, options) {
-      const authModes = storageConfig.accessKey ? ["master"] : ["master", "access"];
+    function getAuthHeaders() {
+      const authHeaders = [];
+
+      if (storageConfig.accessKey) {
+        authHeaders.push({
+          name: "X-Access-Key",
+          value: storageConfig.accessKey
+        });
+      }
+
+      if (storageConfig.apiKey) {
+        authHeaders.push({
+          name: "X-Master-Key",
+          value: storageConfig.apiKey
+        });
+
+        if (!storageConfig.accessKey) {
+          authHeaders.push({
+            name: "X-Access-Key",
+            value: storageConfig.apiKey
+          });
+        }
+      }
+
+      return authHeaders;
+    }
+
+    async function requestJson(url, options, authHeaders) {
       let lastResponse = null;
 
-      for (const authMode of authModes) {
+      if (!authHeaders.length) {
         const response = await fetch(url, Object.assign({}, options, {
-          headers: buildHeaders(authMode)
+          headers: buildHeaders(null)
+        }));
+
+        if (response.ok) {
+          return response;
+        }
+
+        lastResponse = response;
+        throw new Error(`JSONBin request failed (${lastResponse.status})`);
+      }
+
+      for (const authHeader of authHeaders) {
+        const response = await fetch(url, Object.assign({}, options, {
+          headers: buildHeaders(authHeader)
         }));
 
         if (response.ok) {
@@ -77,21 +108,27 @@
 
     return {
       name: "JSONBin",
-      isConfigured() {
-        return !isPlaceholder(storageConfig.binId) && !isPlaceholder(storageConfig.apiKey);
+      canRead() {
+        return !isPlaceholder(storageConfig.binId);
+      },
+      canWrite() {
+        return !isPlaceholder(storageConfig.binId)
+          && (!isPlaceholder(storageConfig.accessKey) || !isPlaceholder(storageConfig.apiKey));
       },
       async read() {
+        const authHeaders = getAuthHeaders();
         const response = await requestJson(latestUrl, {
           method: "GET"
-        });
+        }, authHeaders);
         const payload = await response.json();
         return payload.record || payload;
       },
       async write(state) {
+        const authHeaders = getAuthHeaders();
         const response = await requestJson(resourceUrl, {
           method: "PUT",
           body: JSON.stringify(state)
-        });
+        }, authHeaders);
         const payload = await response.json();
         return payload.record || state;
       }
@@ -104,7 +141,7 @@
     const remoteProvider = createJsonBinProvider(storageConfig);
 
     async function load(defaultState) {
-      if (!remoteProvider.isConfigured()) {
+      if (!remoteProvider.canRead()) {
         const localState = await localProvider.read();
         return {
           state: localState ? deepClone(localState) : deepClone(defaultState),
@@ -135,11 +172,11 @@
       const snapshot = deepClone(state);
       await localProvider.write(snapshot);
 
-      if (!remoteProvider.isConfigured()) {
+      if (!remoteProvider.canWrite()) {
         return {
           state: snapshot,
           source: "local",
-          warning: "Saved locally only. JSONBin is not configured."
+          warning: "Saved locally only. Remote write access is not configured."
         };
       }
 
@@ -161,6 +198,12 @@
     }
 
     return {
+      getCapabilities() {
+        return {
+          canReadRemote: remoteProvider.canRead(),
+          canWriteRemote: remoteProvider.canWrite()
+        };
+      },
       async load(defaultState) {
         return load(defaultState);
       },
