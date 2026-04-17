@@ -2,11 +2,17 @@
   const elements = {
     playerCards: document.getElementById("playerCards"),
     historyList: document.getElementById("historyList"),
+    weeklyHistoryPreview: document.getElementById("weeklyHistoryPreview"),
+    weeklyHistoryModalList: document.getElementById("weeklyHistoryModalList"),
+    weekSaveStatus: document.getElementById("weekSaveStatus"),
     leaderChip: document.getElementById("leaderChip"),
     storageStatus: document.getElementById("storageStatus"),
     lastUpdated: document.getElementById("lastUpdated"),
     refreshButton: document.getElementById("refreshButton"),
     resetButton: document.getElementById("resetButton"),
+    saveWeekButton: document.getElementById("saveWeekButton"),
+    viewHistoryButton: document.getElementById("viewHistoryButton"),
+    closeHistoryButton: document.getElementById("closeHistoryButton"),
     pointForm: document.getElementById("pointForm"),
     pointPlayer: document.getElementById("pointPlayer"),
     pointAction: document.getElementById("pointAction"),
@@ -15,6 +21,7 @@
     pointPreview: document.getElementById("pointPreview"),
     pointPreviewBox: document.getElementById("pointPreviewBox"),
     modalBackdrop: document.getElementById("modalBackdrop"),
+    historyModalBackdrop: document.getElementById("historyModalBackdrop"),
     cancelResetButton: document.getElementById("cancelResetButton"),
     confirmResetButton: document.getElementById("confirmResetButton")
   };
@@ -24,15 +31,32 @@
   const refreshIntervalMs = (window.APP_CONFIG && window.APP_CONFIG.refreshIntervalMs) || 60000;
 
   let state = normalizeState(defaultState);
-  let syncBusy = false;
+  let refreshBusy = false;
+  let pendingSyncCount = 0;
+  let syncQueue = Promise.resolve();
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
   }
 
+  function formatDateOnly(timestamp) {
+    if (!timestamp) {
+      return "-";
+    }
+
+    return new Date(timestamp).toLocaleDateString([], {
+      dateStyle: "medium"
+    });
+  }
+
+  function createWeekLabel(timestamp) {
+    return `Week of ${formatDateOnly(timestamp)}`;
+  }
+
   function normalizeState(rawState) {
     const base = clone(defaultState);
     const legacyEvents = [];
+    const fallbackWeekLabel = (base.meta && base.meta.weekLabel) || createWeekLabel(new Date().toISOString());
 
     if (Array.isArray(rawState && rawState.history)) {
       rawState.history.forEach(function (item) {
@@ -49,12 +73,25 @@
     }
 
     return {
-      meta: Object.assign({}, base.meta || {}, rawState && rawState.meta ? rawState.meta : {}),
+      meta: Object.assign(
+        {
+          revision: 0,
+          updatedAt: null,
+          lastResetAt: null,
+          weekLabel: fallbackWeekLabel,
+          savedWeekId: null
+        },
+        base.meta || {},
+        rawState && rawState.meta ? rawState.meta : {}
+      ),
       players: Array.isArray(rawState && rawState.players) ? rawState.players : clone(base.players || []),
       actions: Array.isArray(rawState && rawState.actions) ? rawState.actions : clone(base.actions || []),
       pointEvents: Array.isArray(rawState && rawState.pointEvents)
         ? rawState.pointEvents
-        : legacyEvents
+        : legacyEvents,
+      weeklyHistory: Array.isArray(rawState && rawState.weeklyHistory)
+        ? rawState.weeklyHistory
+        : clone(base.weeklyHistory || [])
     };
   }
 
@@ -88,6 +125,18 @@
     elements.storageStatus.textContent = "Using local copy";
   }
 
+  function setTemporaryStatus(message) {
+    elements.storageStatus.textContent = message;
+  }
+
+  function syncStatusLabel() {
+    if (pendingSyncCount > 0) {
+      return pendingSyncCount > 1 ? "Saving changes..." : "Saving change...";
+    }
+
+    return "";
+  }
+
   function updateMeta() {
     state.meta.revision = numberValue(state.meta.revision) + 1;
     state.meta.updatedAt = new Date().toISOString();
@@ -110,10 +159,14 @@
     });
   }
 
-  function getLeaderText() {
-    const totals = getPlayerTotals().sort(function (a, b) {
+  function getSortedPlayerTotals() {
+    return getPlayerTotals().slice().sort(function (a, b) {
       return b.totalPoints - a.totalPoints;
     });
+  }
+
+  function getLeaderText() {
+    const totals = getSortedPlayerTotals();
 
     if (!totals.length || (totals[1] && totals[0].totalPoints === totals[1].totalPoints)) {
       return "Leader: tied";
@@ -132,6 +185,106 @@
     }
 
     return "";
+  }
+
+  function getWeekTimeRange(events) {
+    if (!events.length) {
+      return {
+        startAt: null,
+        endAt: null
+      };
+    }
+
+    return events.reduce(function (range, event) {
+      const timestamp = event.timestamp || new Date().toISOString();
+
+      if (!range.startAt || new Date(timestamp) < new Date(range.startAt)) {
+        range.startAt = timestamp;
+      }
+
+      if (!range.endAt || new Date(timestamp) > new Date(range.endAt)) {
+        range.endAt = timestamp;
+      }
+
+      return range;
+    }, {
+      startAt: null,
+      endAt: null
+    });
+  }
+
+  function getWeekWinner(totals) {
+    if (!totals.length) {
+      return {
+        winnerIds: [],
+        winnerLabel: "No winner",
+        isTie: false
+      };
+    }
+
+    const highestScore = totals[0].totalPoints;
+    const winners = totals.filter(function (item) {
+      return item.totalPoints === highestScore;
+    });
+
+    if (winners.length > 1) {
+      return {
+        winnerIds: winners.map(function (item) { return item.player.id; }),
+        winnerLabel: "Tie",
+        isTie: true
+      };
+    }
+
+    return {
+      winnerIds: [winners[0].player.id],
+      winnerLabel: winners[0].player.name,
+      isTie: false
+    };
+  }
+
+  function buildWeekSummary() {
+    const totals = getSortedPlayerTotals();
+    const range = getWeekTimeRange(state.pointEvents);
+    const winner = getWeekWinner(totals);
+    const savedAt = new Date().toISOString();
+
+    return {
+      id: `week-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      weekLabel: state.meta.weekLabel || createWeekLabel(savedAt),
+      savedAt: savedAt,
+      startAt: range.startAt,
+      endAt: range.endAt,
+      totalEvents: state.pointEvents.length,
+      winnerIds: winner.winnerIds,
+      winnerLabel: winner.winnerLabel,
+      isTie: winner.isTie,
+      totals: totals.map(function (item) {
+        return {
+          playerId: item.player.id,
+          playerName: item.player.name,
+          totalPoints: item.totalPoints,
+          eventsCount: item.eventsCount
+        };
+      })
+    };
+  }
+
+  function getSavedWeekEntry() {
+    if (!state.meta.savedWeekId) {
+      return null;
+    }
+
+    return state.weeklyHistory.find(function (week) {
+      return week.id === state.meta.savedWeekId;
+    }) || null;
+  }
+
+  function hasWeekChangedSinceSave(savedWeek) {
+    if (!savedWeek) {
+      return false;
+    }
+
+    return savedWeek.totalEvents !== state.pointEvents.length;
   }
 
   function renderPlayerOptions() {
@@ -206,6 +359,71 @@
       : '<div class="empty-state">No point changes yet.</div>';
   }
 
+  function renderWeekSaveStatus() {
+    const savedWeek = getSavedWeekEntry();
+
+    elements.saveWeekButton.disabled = !state.pointEvents.length;
+
+    if (!state.pointEvents.length) {
+      elements.weekSaveStatus.textContent = "No current-week points yet. Save becomes available after you add points.";
+      return;
+    }
+
+    if (savedWeek && hasWeekChangedSinceSave(savedWeek)) {
+      elements.weekSaveStatus.textContent = "This week changed after the last save. Save again to add a new archived copy before clearing.";
+      return;
+    }
+
+    if (savedWeek) {
+      elements.weekSaveStatus.textContent = `Last saved to weekly history on ${formatTimestamp(savedWeek.savedAt)}. Saving again will add another archived copy.`;
+      return;
+    }
+
+    elements.weekSaveStatus.textContent = "This week has not been saved to history yet.";
+  }
+
+  function renderWeekSummaryCard(week) {
+    const winnerClass = week.winnerIds.length === 1 ? getPlayerClass(week.winnerIds[0]) : "";
+    const totalsHtml = week.totals.map(function (total) {
+      const pointLabel = total.totalPoints > 0 ? `+${total.totalPoints}` : `${total.totalPoints}`;
+      return `
+        <div class="stat-row">
+          <span>${total.playerName}</span>
+          <strong>${pointLabel} pts</strong>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="simple-item ${winnerClass}">
+        <div class="history-title-row">
+          <strong>${week.weekLabel}</strong>
+          <div class="history-card-actions">
+            <span class="subtle">${formatDateOnly(week.savedAt)}</span>
+            <button class="danger-button delete-week-button" type="button" data-week-id="${week.id}">Delete</button>
+          </div>
+        </div>
+        <div class="subtle">Winner: ${week.winnerLabel} · ${week.totalEvents} entries</div>
+        ${week.startAt && week.endAt ? `<div class="subtle">${formatDateOnly(week.startAt)} to ${formatDateOnly(week.endAt)}</div>` : ""}
+        <div class="summary-stack">${totalsHtml}</div>
+      </div>
+    `;
+  }
+
+  function renderWeeklyHistory() {
+    const latestWeek = state.weeklyHistory[0];
+
+    elements.viewHistoryButton.disabled = !state.weeklyHistory.length;
+
+    elements.weeklyHistoryPreview.innerHTML = latestWeek
+      ? renderWeekSummaryCard(latestWeek)
+      : '<div class="empty-state">No saved weeks yet.</div>';
+
+    elements.weeklyHistoryModalList.innerHTML = state.weeklyHistory.length
+      ? state.weeklyHistory.map(renderWeekSummaryCard).join("")
+      : '<div class="empty-state">No weekly history yet. Save a week first.</div>';
+  }
+
   function renderMeta() {
     elements.lastUpdated.textContent = formatTimestamp(state.meta.updatedAt);
   }
@@ -222,48 +440,94 @@
     renderActionOptions();
     renderScoreboard();
     renderHistory();
+    renderWeeklyHistory();
+    renderWeekSaveStatus();
     renderMeta();
     updatePreview();
   }
 
+  function queuePersist(snapshot, successMessage) {
+    const snapshotRevision = numberValue(snapshot && snapshot.meta ? snapshot.meta.revision : 0);
+
+    pendingSyncCount += 1;
+    setTemporaryStatus(syncStatusLabel());
+
+    syncQueue = syncQueue.catch(function () {
+      return null;
+    }).then(async function () {
+      const saved = await storage.save(snapshot);
+
+      if (numberValue(state.meta && state.meta.revision) === snapshotRevision) {
+        state = normalizeState(saved.state);
+        render();
+      }
+
+      if (successMessage && pendingSyncCount === 1) {
+        setTemporaryStatus(successMessage);
+      } else {
+        setStatus(saved.source, saved.warning);
+      }
+
+      return saved;
+    }).catch(function (error) {
+      setTemporaryStatus(`Save failed: ${error.message}`);
+      return null;
+    }).finally(function () {
+      pendingSyncCount = Math.max(0, pendingSyncCount - 1);
+
+      if (pendingSyncCount > 0) {
+        setTemporaryStatus(syncStatusLabel());
+      }
+    });
+
+    return syncQueue;
+  }
+
   async function refreshFromStorage() {
-    if (syncBusy) {
+    if (refreshBusy || pendingSyncCount > 0) {
       return;
     }
 
-    syncBusy = true;
+    refreshBusy = true;
     elements.storageStatus.textContent = "Refreshing...";
 
     try {
       const result = await storage.load(defaultState);
-      state = normalizeState(result.state);
+      const loadedState = normalizeState(result.state);
+
+      if (numberValue(loadedState.meta && loadedState.meta.revision) >= numberValue(state.meta && state.meta.revision)) {
+        state = loadedState;
+        render();
+      }
+
       setStatus(result.source, result.warning);
-      render();
     } finally {
-      syncBusy = false;
+      refreshBusy = false;
     }
   }
 
-  async function saveWithLatest(mutator) {
-    if (syncBusy) {
-      return;
+  function saveWithLatest(mutator, successMessage) {
+    if (refreshBusy) {
+      setTemporaryStatus("Please wait for refresh to finish.");
+      return false;
     }
 
-    syncBusy = true;
-    elements.storageStatus.textContent = "Saving...";
+    const nextState = normalizeState(clone(state));
+    const previousState = state;
 
-    try {
-      const latest = await storage.load(defaultState);
-      state = normalizeState(latest.state);
-      mutator();
-      updateMeta();
-      const saved = await storage.save(state);
-      state = normalizeState(saved.state);
-      setStatus(saved.source, saved.warning);
+    state = nextState;
+    const shouldSave = mutator();
+
+    if (shouldSave === false) {
+      state = previousState;
       render();
-    } finally {
-      syncBusy = false;
+      return false;
     }
+
+    updateMeta();
+    render();
+    queuePersist(clone(state), successMessage);
+    return true;
   }
 
   async function handlePointSubmit(event) {
@@ -277,7 +541,7 @@
     const points = numberValue(elements.pointValue.value);
     const note = elements.pointNote.value.trim();
 
-    await saveWithLatest(function () {
+    const saved = saveWithLatest(function () {
       state.pointEvents.unshift({
         id: `event-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
         timestamp: new Date().toISOString(),
@@ -289,9 +553,41 @@
       });
     });
 
-    elements.pointValue.value = "1";
-    elements.pointNote.value = "";
-    updatePreview();
+    if (saved) {
+      elements.pointValue.value = "1";
+      elements.pointNote.value = "";
+      updatePreview();
+    }
+  }
+
+  async function handleSaveWeek() {
+    if (!state.pointEvents.length) {
+      setTemporaryStatus("Nothing to save for this week yet.");
+      return;
+    }
+
+    const saved = saveWithLatest(function () {
+      const summary = buildWeekSummary();
+      state.weeklyHistory.unshift(summary);
+      state.meta.savedWeekId = summary.id;
+    }, "Week saved to history.");
+  }
+
+  async function handleDeleteSavedWeek(weekId) {
+    const deleted = saveWithLatest(function () {
+      const beforeCount = state.weeklyHistory.length;
+      state.weeklyHistory = state.weeklyHistory.filter(function (week) {
+        return week.id !== weekId;
+      });
+
+      if (beforeCount === state.weeklyHistory.length) {
+        return false;
+      }
+
+      if (state.meta.savedWeekId === weekId) {
+        state.meta.savedWeekId = null;
+      }
+    }, "Saved week deleted from history.");
   }
 
   function openResetModal() {
@@ -302,11 +598,21 @@
     elements.modalBackdrop.classList.add("hidden");
   }
 
+  function openHistoryModal() {
+    elements.historyModalBackdrop.classList.remove("hidden");
+  }
+
+  function closeHistoryModal() {
+    elements.historyModalBackdrop.classList.add("hidden");
+  }
+
   async function handleResetConfirm() {
-    await saveWithLatest(function () {
+    saveWithLatest(function () {
       state.pointEvents = [];
       state.meta.lastResetAt = new Date().toISOString();
-    });
+      state.meta.weekLabel = createWeekLabel(state.meta.lastResetAt);
+      state.meta.savedWeekId = null;
+    }, "Current week cleared.");
 
     closeResetModal();
   }
@@ -315,12 +621,37 @@
     elements.pointForm.addEventListener("submit", handlePointSubmit);
     elements.pointValue.addEventListener("input", updatePreview);
     elements.refreshButton.addEventListener("click", refreshFromStorage);
+    elements.saveWeekButton.addEventListener("click", handleSaveWeek);
+    elements.viewHistoryButton.addEventListener("click", openHistoryModal);
+    elements.closeHistoryButton.addEventListener("click", closeHistoryModal);
     elements.resetButton.addEventListener("click", openResetModal);
     elements.cancelResetButton.addEventListener("click", closeResetModal);
     elements.confirmResetButton.addEventListener("click", handleResetConfirm);
     elements.modalBackdrop.addEventListener("click", function (event) {
       if (event.target === elements.modalBackdrop) {
         closeResetModal();
+      }
+    });
+    elements.historyModalBackdrop.addEventListener("click", function (event) {
+      if (event.target === elements.historyModalBackdrop) {
+        closeHistoryModal();
+      }
+    });
+    [elements.weeklyHistoryPreview, elements.weeklyHistoryModalList].forEach(function (container) {
+      container.addEventListener("click", function (event) {
+        const button = event.target.closest("[data-week-id]");
+
+        if (!button) {
+          return;
+        }
+
+        handleDeleteSavedWeek(button.getAttribute("data-week-id"));
+      });
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        closeResetModal();
+        closeHistoryModal();
       }
     });
     document.addEventListener("visibilitychange", function () {
@@ -332,6 +663,10 @@
   }
 
   function init() {
+    if (!state.meta.weekLabel) {
+      state.meta.weekLabel = createWeekLabel(new Date().toISOString());
+    }
+
     render();
     bindEvents();
     refreshFromStorage();

@@ -15,7 +15,8 @@ window.APP_DEFAULT_STATE = {
     revision: 0,
     updatedAt: null,
     lastResetAt: null,
-    weekLabel: "Current Week"
+    weekLabel: "Current Week",
+    savedWeekId: null
   },
   players: [
     {
@@ -49,5 +50,6 @@ window.APP_DEFAULT_STATE = {
       name: "Penalty"
     }
   ],
-  pointEvents: []
+  pointEvents: [],
+  weeklyHistory: []
 };

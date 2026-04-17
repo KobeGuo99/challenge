@@ -222,6 +222,12 @@ h2 {
   gap: 0.8rem;
 }
 
+.action-row,
+.summary-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
 label {
   display: grid;
   gap: 0.35rem;
@@ -255,6 +261,11 @@ button {
   border-radius: 999px;
   padding: 0.8rem 1.05rem;
   cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .primary-button {
@@ -321,6 +332,27 @@ button {
   overflow: hidden;
 }
 
+.history-title-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.history-card-actions {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.delete-week-button {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 .compact-panel {
   align-content: start;
 }
@@ -346,6 +378,12 @@ button {
   box-shadow: var(--shadow);
 }
 
+.modal-large {
+  width: min(100%, 44rem);
+  max-height: min(80vh, 48rem);
+  overflow: auto;
+}
+
 @media (min-width: 760px) {
   .hero,
   .layout {
@@ -363,6 +401,10 @@ button {
   }
 
   .point-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .action-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

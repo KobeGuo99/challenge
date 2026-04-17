@@ -13,7 +13,7 @@
   <div class="page-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">Shared Weekly Points</p>
+        <p class="eyebrow">Losing Weight Challenge!!</p>
         <h1>Rinchan vs Kokun</h1>
         <p class="hero-copy">Pick a player, pick what you are adding, choose the points, and save.</p>
       </div>
@@ -108,24 +108,52 @@
       <section class="panel compact-panel">
         <div class="section-heading">
           <div>
+            <p class="section-kicker">Weekly history</p>
+            <h2>Saved week results</h2>
+          </div>
+        </div>
+        <p id="weekSaveStatus" class="muted-copy">This week has not been saved to history yet.</p>
+        <div id="weeklyHistoryPreview" class="simple-list"></div>
+        <div class="action-row">
+          <button id="saveWeekButton" class="primary-button" type="button">Save week</button>
+          <button id="viewHistoryButton" class="secondary-button" type="button">View full history</button>
+        </div>
+      </section>
+
+      <section class="panel compact-panel">
+        <div class="section-heading">
+          <div>
             <p class="section-kicker">Reset</p>
             <h2>Start a new week</h2>
           </div>
         </div>
-        <p class="muted-copy">This clears scores and history, but keeps the players and action choices.</p>
-        <button id="resetButton" class="danger-button" type="button">Reset week</button>
+        <p class="muted-copy">If you clear without saving, the current week is gone. Save first if you want it kept in weekly history.</p>
+        <button id="resetButton" class="danger-button" type="button">Clear current week</button>
       </section>
     </main>
   </div>
 
   <div id="modalBackdrop" class="modal-backdrop hidden" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <h3 id="modalTitle">Reset this week?</h3>
-      <p>This will remove all saved point events for the week.</p>
+      <h3 id="modalTitle">Clear this week?</h3>
+      <p>This will remove the current week's points and recent history. Saved weekly history will stay.</p>
       <div class="modal-actions">
         <button id="cancelResetButton" class="secondary-button" type="button">Cancel</button>
-        <button id="confirmResetButton" class="danger-button" type="button">Reset</button>
+        <button id="confirmResetButton" class="danger-button" type="button">Clear week</button>
       </div>
+    </div>
+  </div>
+
+  <div id="historyModalBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal modal-large" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Archive</p>
+          <h3 id="historyModalTitle">Weekly history</h3>
+        </div>
+        <button id="closeHistoryButton" class="secondary-button" type="button">Close</button>
+      </div>
+      <div id="weeklyHistoryModalList" class="simple-list"></div>
     </div>
   </div>
 
