@@ -3,7 +3,7 @@ window.APP_CONFIG = {
     provider: "jsonbin",
     baseUrl: "https://api.jsonbin.io/v3",
     // Safe to commit for a public, read-only deployment if your bin visibility is Public.
-    binId: "REPLACE_WITH_PUBLIC_READONLY_BIN_ID",
+    binId: "69e15764aaba88219708efd8",
     apiKey: "",
     accessKey: "",
     useVersioning: false
