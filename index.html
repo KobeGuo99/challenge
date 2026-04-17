@@ -15,12 +15,16 @@
       <div>
         <p class="eyebrow">Losing Weight Challenge!!</p>
         <h1>Rinchan vs Kokun</h1>
-        <p class="hero-copy">Pick a player, pick what you are adding, choose the points, and save.</p>
+        <p class="hero-copy" id="modeDescription">View mode shows points and history. Enter the PIN to switch to edit mode.</p>
       </div>
       <div class="hero-status">
         <div class="status-pill" id="storageStatus">Checking storage...</div>
+        <div class="status-pill" id="modePill">View mode</div>
         <div class="meta-line">Last updated: <strong id="lastUpdated">-</strong></div>
-        <button id="refreshButton" class="secondary-button" type="button">Refresh</button>
+        <div class="hero-actions">
+          <button id="refreshButton" class="secondary-button" type="button">Refresh</button>
+          <button id="modeToggleButton" class="primary-button" type="button">Edit</button>
+        </div>
       </div>
     </header>
 
@@ -36,7 +40,7 @@
         <div class="score-grid" id="playerCards"></div>
       </section>
 
-      <section class="panel">
+      <section class="panel edit-only">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Add points</p>
@@ -68,7 +72,7 @@
         </form>
       </section>
 
-      <section class="panel compact-panel">
+      <section class="panel compact-panel edit-only">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Rules</p>
@@ -115,12 +119,12 @@
         <p id="weekSaveStatus" class="muted-copy">This week has not been saved to history yet.</p>
         <div id="weeklyHistoryPreview" class="simple-list"></div>
         <div class="action-row">
-          <button id="saveWeekButton" class="primary-button" type="button">Save week</button>
+          <button id="saveWeekButton" class="primary-button edit-only" type="button">Save week</button>
           <button id="viewHistoryButton" class="secondary-button" type="button">View full history</button>
         </div>
       </section>
 
-      <section class="panel compact-panel">
+      <section class="panel compact-panel edit-only">
         <div class="section-heading">
           <div>
             <p class="section-kicker">Reset</p>
@@ -154,6 +158,23 @@
         <button id="closeHistoryButton" class="secondary-button" type="button">Close</button>
       </div>
       <div id="weeklyHistoryModalList" class="simple-list"></div>
+    </div>
+  </div>
+
+  <div id="pinModalBackdrop" class="modal-backdrop hidden" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
+      <h3 id="pinModalTitle">Enter edit PIN</h3>
+      <form id="pinForm" class="pin-form">
+        <label>
+          <span>PIN</span>
+          <input id="pinInput" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Enter PIN" required>
+        </label>
+        <p id="pinError" class="error-text hidden">Incorrect PIN.</p>
+        <div class="modal-actions">
+          <button id="cancelPinButton" class="secondary-button" type="button">Cancel</button>
+          <button class="primary-button" type="submit">Unlock edit mode</button>
+        </div>
+      </form>
     </div>
   </div>
 

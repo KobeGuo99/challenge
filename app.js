@@ -5,10 +5,13 @@
     weeklyHistoryPreview: document.getElementById("weeklyHistoryPreview"),
     weeklyHistoryModalList: document.getElementById("weeklyHistoryModalList"),
     weekSaveStatus: document.getElementById("weekSaveStatus"),
+    modeDescription: document.getElementById("modeDescription"),
+    modePill: document.getElementById("modePill"),
     leaderChip: document.getElementById("leaderChip"),
     storageStatus: document.getElementById("storageStatus"),
     lastUpdated: document.getElementById("lastUpdated"),
     refreshButton: document.getElementById("refreshButton"),
+    modeToggleButton: document.getElementById("modeToggleButton"),
     resetButton: document.getElementById("resetButton"),
     saveWeekButton: document.getElementById("saveWeekButton"),
     viewHistoryButton: document.getElementById("viewHistoryButton"),
@@ -22,18 +25,26 @@
     pointPreviewBox: document.getElementById("pointPreviewBox"),
     modalBackdrop: document.getElementById("modalBackdrop"),
     historyModalBackdrop: document.getElementById("historyModalBackdrop"),
+    pinModalBackdrop: document.getElementById("pinModalBackdrop"),
+    pinForm: document.getElementById("pinForm"),
+    pinInput: document.getElementById("pinInput"),
+    pinError: document.getElementById("pinError"),
+    cancelPinButton: document.getElementById("cancelPinButton"),
     cancelResetButton: document.getElementById("cancelResetButton"),
-    confirmResetButton: document.getElementById("confirmResetButton")
+    confirmResetButton: document.getElementById("confirmResetButton"),
+    editOnlySections: document.querySelectorAll(".edit-only")
   };
 
   const storage = window.AppStorage.createClient();
   const defaultState = window.APP_DEFAULT_STATE || {};
   const refreshIntervalMs = (window.APP_CONFIG && window.APP_CONFIG.refreshIntervalMs) || 60000;
+  const editPin = "1825";
 
   let state = normalizeState(defaultState);
   let refreshBusy = false;
   let pendingSyncCount = 0;
   let syncQueue = Promise.resolve();
+  let isEditMode = false;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -127,6 +138,15 @@
 
   function setTemporaryStatus(message) {
     elements.storageStatus.textContent = message;
+  }
+
+  function requireEditMode() {
+    if (isEditMode) {
+      return true;
+    }
+
+    setTemporaryStatus("Enter the PIN to use edit mode.");
+    return false;
   }
 
   function syncStatusLabel() {
@@ -362,10 +382,17 @@
   function renderWeekSaveStatus() {
     const savedWeek = getSavedWeekEntry();
 
-    elements.saveWeekButton.disabled = !state.pointEvents.length;
+    elements.saveWeekButton.disabled = !isEditMode || !state.pointEvents.length;
 
     if (!state.pointEvents.length) {
-      elements.weekSaveStatus.textContent = "No current-week points yet. Save becomes available after you add points.";
+      elements.weekSaveStatus.textContent = isEditMode
+        ? "No current-week points yet. Save becomes available after you add points."
+        : "View mode is active. Weekly history is shown below.";
+      return;
+    }
+
+    if (!isEditMode) {
+      elements.weekSaveStatus.textContent = "View mode is active. Enter the PIN to save or clear a week.";
       return;
     }
 
@@ -400,7 +427,7 @@
           <strong>${week.weekLabel}</strong>
           <div class="history-card-actions">
             <span class="subtle">${formatDateOnly(week.savedAt)}</span>
-            <button class="danger-button delete-week-button" type="button" data-week-id="${week.id}">Delete</button>
+            ${isEditMode ? `<button class="danger-button delete-week-button" type="button" data-week-id="${week.id}">Delete</button>` : ""}
           </div>
         </div>
         <div class="subtle">Winner: ${week.winnerLabel} · ${week.totalEvents} entries</div>
@@ -424,6 +451,19 @@
       : '<div class="empty-state">No weekly history yet. Save a week first.</div>';
   }
 
+  function renderMode() {
+    elements.modePill.textContent = isEditMode ? "Edit mode" : "View mode";
+    elements.modeToggleButton.textContent = isEditMode ? "Lock" : "Edit";
+    elements.modeToggleButton.className = isEditMode ? "secondary-button" : "primary-button";
+    elements.modeDescription.textContent = isEditMode
+      ? "Edit mode is unlocked. You can add points, save weeks, and clear the current week."
+      : "View mode shows points and history. Enter the PIN to switch to edit mode.";
+
+    elements.editOnlySections.forEach(function (section) {
+      section.classList.toggle("hidden-mode", !isEditMode);
+    });
+  }
+
   function renderMeta() {
     elements.lastUpdated.textContent = formatTimestamp(state.meta.updatedAt);
   }
@@ -436,6 +476,7 @@
   }
 
   function render() {
+    renderMode();
     renderPlayerOptions();
     renderActionOptions();
     renderScoreboard();
@@ -533,6 +574,10 @@
   async function handlePointSubmit(event) {
     event.preventDefault();
 
+    if (!requireEditMode()) {
+      return;
+    }
+
     const playerId = elements.pointPlayer.value;
     const actionId = elements.pointAction.value;
     const action = state.actions.find(function (item) {
@@ -561,6 +606,10 @@
   }
 
   async function handleSaveWeek() {
+    if (!requireEditMode()) {
+      return;
+    }
+
     if (!state.pointEvents.length) {
       setTemporaryStatus("Nothing to save for this week yet.");
       return;
@@ -574,6 +623,10 @@
   }
 
   async function handleDeleteSavedWeek(weekId) {
+    if (!requireEditMode()) {
+      return;
+    }
+
     const deleted = saveWithLatest(function () {
       const beforeCount = state.weeklyHistory.length;
       state.weeklyHistory = state.weeklyHistory.filter(function (week) {
@@ -591,6 +644,10 @@
   }
 
   function openResetModal() {
+    if (!requireEditMode()) {
+      return;
+    }
+
     elements.modalBackdrop.classList.remove("hidden");
   }
 
@@ -604,6 +661,50 @@
 
   function closeHistoryModal() {
     elements.historyModalBackdrop.classList.add("hidden");
+  }
+
+  function openPinModal() {
+    elements.pinInput.value = "";
+    elements.pinError.classList.add("hidden");
+    elements.pinModalBackdrop.classList.remove("hidden");
+    window.setTimeout(function () {
+      elements.pinInput.focus();
+    }, 0);
+  }
+
+  function closePinModal() {
+    elements.pinModalBackdrop.classList.add("hidden");
+  }
+
+  function lockEditMode() {
+    isEditMode = false;
+    closePinModal();
+    render();
+    setTemporaryStatus("View mode locked.");
+  }
+
+  function handleModeToggle() {
+    if (isEditMode) {
+      lockEditMode();
+      return;
+    }
+
+    openPinModal();
+  }
+
+  function handlePinSubmit(event) {
+    event.preventDefault();
+
+    if (elements.pinInput.value === editPin) {
+      isEditMode = true;
+      closePinModal();
+      render();
+      setTemporaryStatus("Edit mode unlocked.");
+      return;
+    }
+
+    elements.pinError.classList.remove("hidden");
+    elements.pinInput.select();
   }
 
   async function handleResetConfirm() {
@@ -621,9 +722,12 @@
     elements.pointForm.addEventListener("submit", handlePointSubmit);
     elements.pointValue.addEventListener("input", updatePreview);
     elements.refreshButton.addEventListener("click", refreshFromStorage);
+    elements.modeToggleButton.addEventListener("click", handleModeToggle);
     elements.saveWeekButton.addEventListener("click", handleSaveWeek);
     elements.viewHistoryButton.addEventListener("click", openHistoryModal);
     elements.closeHistoryButton.addEventListener("click", closeHistoryModal);
+    elements.pinForm.addEventListener("submit", handlePinSubmit);
+    elements.cancelPinButton.addEventListener("click", closePinModal);
     elements.resetButton.addEventListener("click", openResetModal);
     elements.cancelResetButton.addEventListener("click", closeResetModal);
     elements.confirmResetButton.addEventListener("click", handleResetConfirm);
@@ -635,6 +739,11 @@
     elements.historyModalBackdrop.addEventListener("click", function (event) {
       if (event.target === elements.historyModalBackdrop) {
         closeHistoryModal();
+      }
+    });
+    elements.pinModalBackdrop.addEventListener("click", function (event) {
+      if (event.target === elements.pinModalBackdrop) {
+        closePinModal();
       }
     });
     [elements.weeklyHistoryPreview, elements.weeklyHistoryModalList].forEach(function (container) {
@@ -652,6 +761,7 @@
       if (event.key === "Escape") {
         closeResetModal();
         closeHistoryModal();
+        closePinModal();
       }
     });
     document.addEventListener("visibilitychange", function () {
