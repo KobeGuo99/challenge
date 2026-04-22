@@ -370,6 +370,11 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+.delete-event-button {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 .compact-panel {
   align-content: start;
 }

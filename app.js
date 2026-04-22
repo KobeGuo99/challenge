@@ -28,10 +28,14 @@
     pointPreviewBox: document.getElementById("pointPreviewBox"),
     modalBackdrop: document.getElementById("modalBackdrop"),
     historyModalBackdrop: document.getElementById("historyModalBackdrop"),
+    deleteActionModalBackdrop: document.getElementById("deleteActionModalBackdrop"),
     pinModalBackdrop: document.getElementById("pinModalBackdrop"),
     pinForm: document.getElementById("pinForm"),
     pinInput: document.getElementById("pinInput"),
     pinError: document.getElementById("pinError"),
+    deleteActionModalCopy: document.getElementById("deleteActionModalCopy"),
+    cancelDeleteActionButton: document.getElementById("cancelDeleteActionButton"),
+    confirmDeleteActionButton: document.getElementById("confirmDeleteActionButton"),
     cancelPinButton: document.getElementById("cancelPinButton"),
     cancelResetButton: document.getElementById("cancelResetButton"),
     confirmResetButton: document.getElementById("confirmResetButton"),
@@ -49,6 +53,7 @@
   let pendingSyncCount = 0;
   let syncQueue = Promise.resolve();
   let isEditMode = false;
+  let pendingDeleteEventId = null;
   const canUseEditMode = storageCapabilities.canWriteRemote;
 
   function clone(value) {
@@ -380,7 +385,10 @@
 
           return `
             <div class="simple-item ${playerClass}">
-              <strong>${playerNames[event.playerId] || event.playerId} · ${event.actionName}</strong>
+              <div class="history-title-row">
+                <strong>${playerNames[event.playerId] || event.playerId} · ${event.actionName}</strong>
+                ${isEditMode ? `<button class="danger-button delete-event-button" type="button" data-delete-event-id="${event.id}">Delete</button>` : ""}
+              </div>
               <div class="subtle">${formatTimestamp(event.timestamp)} · <span class="${pointClass}">${pointLabel} pts</span></div>
               ${event.note ? `<div class="subtle">${event.note}</div>` : ""}
             </div>
@@ -750,6 +758,57 @@
     }, "Saved week deleted from history.");
   }
 
+  function openDeleteActionModal(eventId) {
+    if (!requireEditMode()) {
+      return;
+    }
+
+    const pointEvent = state.pointEvents.find(function (item) {
+      return item.id === eventId;
+    });
+
+    if (!pointEvent) {
+      setTemporaryStatus("That action could not be found.");
+      return;
+    }
+
+    const player = state.players.find(function (item) {
+      return item.id === pointEvent.playerId;
+    });
+    const playerName = player ? player.name : pointEvent.playerId;
+    const pointLabel = pointEvent.points > 0 ? `+${pointEvent.points}` : `${pointEvent.points}`;
+
+    pendingDeleteEventId = eventId;
+    elements.deleteActionModalCopy.textContent = `Delete ${playerName}'s ${pointEvent.actionName} action from ${formatTimestamp(pointEvent.timestamp)} (${pointLabel} pts)? This only changes the current week and updates the totals.`;
+    elements.deleteActionModalBackdrop.classList.remove("hidden");
+  }
+
+  function closeDeleteActionModal() {
+    pendingDeleteEventId = null;
+    elements.deleteActionModalBackdrop.classList.add("hidden");
+  }
+
+  function handleDeleteHistoryEvent(eventId) {
+    if (!requireEditMode()) {
+      return;
+    }
+
+    const deleted = saveWithLatest(function () {
+      const beforeCount = state.pointEvents.length;
+      state.pointEvents = state.pointEvents.filter(function (item) {
+        return item.id !== eventId;
+      });
+
+      if (beforeCount === state.pointEvents.length) {
+        return false;
+      }
+    }, "Action deleted from this week.");
+
+    if (deleted) {
+      closeDeleteActionModal();
+    }
+  }
+
   function openResetModal() {
     if (!requireEditMode()) {
       return;
@@ -836,8 +895,26 @@
     elements.importBackupInput.addEventListener("change", handleImportBackupChange);
     elements.viewHistoryButton.addEventListener("click", openHistoryModal);
     elements.closeHistoryButton.addEventListener("click", closeHistoryModal);
+    elements.historyList.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-delete-event-id]");
+
+      if (!button) {
+        return;
+      }
+
+      openDeleteActionModal(button.getAttribute("data-delete-event-id"));
+    });
     elements.pinForm.addEventListener("submit", handlePinSubmit);
     elements.cancelPinButton.addEventListener("click", closePinModal);
+    elements.cancelDeleteActionButton.addEventListener("click", closeDeleteActionModal);
+    elements.confirmDeleteActionButton.addEventListener("click", function () {
+      if (!pendingDeleteEventId) {
+        closeDeleteActionModal();
+        return;
+      }
+
+      handleDeleteHistoryEvent(pendingDeleteEventId);
+    });
     elements.resetButton.addEventListener("click", openResetModal);
     elements.cancelResetButton.addEventListener("click", closeResetModal);
     elements.confirmResetButton.addEventListener("click", handleResetConfirm);
@@ -849,6 +926,11 @@
     elements.historyModalBackdrop.addEventListener("click", function (event) {
       if (event.target === elements.historyModalBackdrop) {
         closeHistoryModal();
+      }
+    });
+    elements.deleteActionModalBackdrop.addEventListener("click", function (event) {
+      if (event.target === elements.deleteActionModalBackdrop) {
+        closeDeleteActionModal();
       }
     });
     elements.pinModalBackdrop.addEventListener("click", function (event) {
@@ -871,6 +953,7 @@
       if (event.key === "Escape") {
         closeResetModal();
         closeHistoryModal();
+        closeDeleteActionModal();
         closePinModal();
       }
     });
