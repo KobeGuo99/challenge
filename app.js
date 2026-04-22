@@ -60,6 +60,28 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function mergeActions(savedActions, defaultActions) {
+    const normalizedSavedActions = Array.isArray(savedActions) ? clone(savedActions) : [];
+    const normalizedDefaultActions = Array.isArray(defaultActions) ? clone(defaultActions) : [];
+    const savedIds = normalizedSavedActions.reduce(function (set, action) {
+      if (action && action.id) {
+        set[action.id] = true;
+      }
+
+      return set;
+    }, {});
+
+    normalizedDefaultActions.forEach(function (action) {
+      if (!action || !action.id || savedIds[action.id]) {
+        return;
+      }
+
+      normalizedSavedActions.push(action);
+    });
+
+    return normalizedSavedActions;
+  }
+
   function formatDateOnly(timestamp) {
     if (!timestamp) {
       return "-";
@@ -106,7 +128,7 @@
         rawState && rawState.meta ? rawState.meta : {}
       ),
       players: Array.isArray(rawState && rawState.players) ? rawState.players : clone(base.players || []),
-      actions: Array.isArray(rawState && rawState.actions) ? rawState.actions : clone(base.actions || []),
+      actions: mergeActions(rawState && rawState.actions, base.actions || []),
       pointEvents: Array.isArray(rawState && rawState.pointEvents)
         ? rawState.pointEvents
         : legacyEvents,
