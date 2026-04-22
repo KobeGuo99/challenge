@@ -43,6 +43,10 @@ window.APP_DEFAULT_STATE = {
       name: "Calorie goal"
     },
     {
+      id: "water-intake-goal",
+      name: "Water intake goal"
+    },
+    {
       id: "bonus",
       name: "Bonus"
     },

@@ -20,6 +20,7 @@ The sample initial state already includes:
 - Every 30 minutes of workout = +1 point
 - Every 5,000 steps = +1 point
 - Under daily calorie goal = +3 points
+- Meet daily water intake goal = +2 points
 - Every 100 calories over daily calorie goal = -1 point
 
 ## How app state works
