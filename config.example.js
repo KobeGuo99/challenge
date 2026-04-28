@@ -5,7 +5,7 @@ window.APP_CONFIG = {
     // Safe to commit for a public, read-only deployment if your bin visibility is Public.
     binId: "69e15764aaba88219708efd8",
     apiKey: "",
-    accessKey: "",
+    accessKey: "$2a$10$vQ9pb1Jz.H/pOfWB1ipwQu6/rsSXTAmFsTjZJ727nFDFVXqubdNI.",
     useVersioning: false
   },
   refreshIntervalMs: 60000
