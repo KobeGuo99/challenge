@@ -365,6 +365,39 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.saved-events {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
+.saved-events summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.saved-events-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.saved-event-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.saved-event-meta {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: end;
+  text-align: right;
+  white-space: nowrap;
+}
+
 .delete-week-button {
   padding: 0.45rem 0.8rem;
   font-size: 0.85rem;
@@ -429,5 +462,17 @@ button:disabled {
   .hero-actions,
   .action-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .saved-event-row {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-event-meta {
+    justify-items: start;
+    text-align: left;
+    white-space: normal;
   }
 }

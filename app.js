@@ -82,6 +82,40 @@
     return normalizedSavedActions;
   }
 
+  function normalizePointEvent(event) {
+    return {
+      id: event && event.id ? event.id : `event-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      timestamp: event && event.timestamp ? event.timestamp : new Date().toISOString(),
+      playerId: event && event.playerId ? event.playerId : "system",
+      playerName: event && event.playerName ? event.playerName : "",
+      actionId: event && event.actionId ? event.actionId : "legacy",
+      actionName: event && event.actionName ? event.actionName : "Imported",
+      points: Number(event && event.points) || 0,
+      note: event && event.note ? event.note : ""
+    };
+  }
+
+  function normalizeWeeklyHistory(savedHistory) {
+    if (!Array.isArray(savedHistory)) {
+      return [];
+    }
+
+    return savedHistory.map(function (week) {
+      const normalizedWeek = Object.assign({}, week);
+      const savedEvents = Array.isArray(week && week.pointEvents)
+        ? week.pointEvents
+        : Array.isArray(week && week.events)
+          ? week.events
+          : null;
+
+      if (savedEvents) {
+        normalizedWeek.pointEvents = savedEvents.map(normalizePointEvent);
+      }
+
+      return normalizedWeek;
+    });
+  }
+
   function formatDateOnly(timestamp) {
     if (!timestamp) {
       return "-";
@@ -130,11 +164,11 @@
       players: Array.isArray(rawState && rawState.players) ? rawState.players : clone(base.players || []),
       actions: mergeActions(rawState && rawState.actions, base.actions || []),
       pointEvents: Array.isArray(rawState && rawState.pointEvents)
-        ? rawState.pointEvents
+        ? rawState.pointEvents.map(normalizePointEvent)
         : legacyEvents,
       weeklyHistory: Array.isArray(rawState && rawState.weeklyHistory)
-        ? rawState.weeklyHistory
-        : clone(base.weeklyHistory || [])
+        ? normalizeWeeklyHistory(rawState.weeklyHistory)
+        : normalizeWeeklyHistory(base.weeklyHistory || [])
     };
   }
 
@@ -304,6 +338,10 @@
     const range = getWeekTimeRange(state.pointEvents);
     const winner = getWeekWinner(totals);
     const savedAt = new Date().toISOString();
+    const playerNames = state.players.reduce(function (map, player) {
+      map[player.id] = player.name;
+      return map;
+    }, {});
 
     return {
       id: `week-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -322,6 +360,11 @@
           totalPoints: item.totalPoints,
           eventsCount: item.eventsCount
         };
+      }),
+      pointEvents: state.pointEvents.map(function (event) {
+        return Object.assign({}, event, {
+          playerName: playerNames[event.playerId] || event.playerName || event.playerId
+        });
       })
     };
   }
@@ -341,7 +384,24 @@
       return false;
     }
 
-    return savedWeek.totalEvents !== state.pointEvents.length;
+    const savedEvents = Array.isArray(savedWeek.pointEvents) ? savedWeek.pointEvents : [];
+
+    if (savedWeek.totalEvents !== state.pointEvents.length || savedEvents.length !== state.pointEvents.length) {
+      return true;
+    }
+
+    return savedEvents.some(function (savedEvent, index) {
+      const currentEvent = state.pointEvents[index];
+
+      return !currentEvent
+        || savedEvent.id !== currentEvent.id
+        || savedEvent.timestamp !== currentEvent.timestamp
+        || savedEvent.playerId !== currentEvent.playerId
+        || savedEvent.actionId !== currentEvent.actionId
+        || savedEvent.actionName !== currentEvent.actionName
+        || numberValue(savedEvent.points) !== numberValue(currentEvent.points)
+        || (savedEvent.note || "") !== (currentEvent.note || "");
+    });
   }
 
   function renderPlayerOptions() {
@@ -460,6 +520,34 @@
         </div>
       `;
     }).join("");
+    const savedEvents = Array.isArray(week.pointEvents) ? week.pointEvents : [];
+    const savedEventsHtml = savedEvents.length
+      ? `
+        <details class="saved-events">
+          <summary>Point changes (${savedEvents.length})</summary>
+          <div class="saved-events-list">
+            ${savedEvents.map(function (event) {
+              const pointClass = event.points > 0 ? "positive" : event.points < 0 ? "negative" : "";
+              const pointLabel = event.points > 0 ? `+${event.points}` : `${event.points}`;
+              const playerName = event.playerName || event.playerId;
+
+              return `
+                <div class="saved-event-row">
+                  <div>
+                    <strong>${playerName} · ${event.actionName}</strong>
+                    ${event.note ? `<div class="subtle">${event.note}</div>` : ""}
+                  </div>
+                  <div class="saved-event-meta">
+                    <span class="${pointClass}">${pointLabel} pts</span>
+                    <span class="subtle">${formatTimestamp(event.timestamp)}</span>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </details>
+      `
+      : '<div class="subtle">Point-change history was not saved for this older week.</div>';
 
     return `
       <div class="simple-item ${winnerClass}">
@@ -473,6 +561,7 @@
         <div class="subtle">Winner: ${week.winnerLabel} · ${week.totalEvents} entries</div>
         ${week.startAt && week.endAt ? `<div class="subtle">${formatDateOnly(week.startAt)} to ${formatDateOnly(week.endAt)}</div>` : ""}
         <div class="summary-stack">${totalsHtml}</div>
+        ${savedEventsHtml}
       </div>
     `;
   }
